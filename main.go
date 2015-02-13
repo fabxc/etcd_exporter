@@ -12,6 +12,7 @@ import (
 )
 
 var (
+	etcdAddress   = flag.String("etcd.address", "http://127.0.0.1:7001", "Address of the initial etcd instance.")
 	listenAddress = flag.String("web.listen-address", ":9105", "Address to listen on for web interface and telemetry.")
 	metricsPath   = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 	// discoveryURL  = flag.String("discovery", "", "The etcd discovery service URL for the cluster.")
@@ -26,7 +27,7 @@ func main() {
 	// if err != nil {
 	// 	log.Fatalf("error discovering cluster at %s: %s", *discoveryURL, err)
 	// }
-	client := etcd.NewClient([]string{"127.0.0.1:4001"})
+	client := etcd.NewClient([]string{*etcdAddress})
 	client.SyncCluster()
 	refreshCollectors(client.GetCluster())
 
