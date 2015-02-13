@@ -28,8 +28,6 @@ func main() {
 	// 	log.Fatalf("error discovering cluster at %s: %s", *discoveryURL, err)
 	// }
 	client := etcd.NewClient([]string{*etcdAddress})
-	client.SyncCluster()
-	refreshCollectors(client.GetCluster())
 
 	recv := make(chan *etcd.Response)
 	_, err := client.Watch("/_etcd/machines/", 0, true, recv, nil)
@@ -39,14 +37,16 @@ func main() {
 	// keep refreshing the participating servers
 	go func() {
 		for {
-			<-recv
 			if client.SyncCluster() {
+				log.Println("connected to", client.GetCluster())
 				refreshCollectors(client.GetCluster())
 			}
+			<-recv
 		}
 	}()
 
 	http.Handle(*metricsPath, prometheus.Handler())
+	log.Println("listening on", *listenAddress)
 	err = http.ListenAndServe(*listenAddress, nil)
 	if err != nil {
 		log.Fatal(err)
