@@ -315,20 +315,20 @@ func (m *storeMetrics) set(stats map[string]int64, name, id, state string) {
 	set := func(dst, src string) {
 		m.gaugeVecs[dst].WithLabelValues(name, id, state).Set(float64(stats[src]))
 	}
-	set("compare_and_swap_fail", "compareAndSwapFail")
-	set("compare_and_swap_success", "compareAndSwapSuccess")
-	set("create_fail", "createFail")
-	set("create_success", "createSuccess")
-	set("delete_fail", "deleteFail")
-	set("delete_success", "deleteSuccess")
-	set("expire_count", "expireCount")
-	set("sets_fail", "setsFail")
-	set("sets_success", "setsSuccess")
-	set("update_fail", "updateFail")
-	set("update_success", "updateSuccess")
+	set("compare_and_swap_fail_total", "compareAndSwapFail")
+	set("compare_and_swap_success_total", "compareAndSwapSuccess")
+	set("create_fail_total", "createFail")
+	set("create_success_total", "createSuccess")
+	set("delete_fail_total", "deleteFail")
+	set("delete_success_total", "deleteSuccess")
+	set("expire_count_total", "expireCount")
+	set("sets_fail_total", "setsFail")
+	set("sets_success_total", "setsSuccess")
+	set("update_fail_total", "updateFail")
+	set("update_success_total", "updateSuccess")
 
-	set("gets_fail", "getsFail")
-	set("gets_success", "getsSuccess")
+	set("gets_fail_total", "getsFail")
+	set("gets_success_total", "getsSuccess")
 	set("watchers", "watchers")
 }
 
