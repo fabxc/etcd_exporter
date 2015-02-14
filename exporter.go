@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"path"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -61,7 +60,7 @@ func NewExporter(addr string) *exporter {
 // scrape retrieves the JSON stats from the given endpoint
 // and decodes them into v.
 func (e *exporter) scrape(endpoint string, v interface{}) error {
-	resp, err := e.client.Get(path.Join(e.addr, endpoint))
+	resp, err := e.client.Get(e.addr + endpoint)
 	if err != nil {
 		return err
 	}
@@ -223,14 +222,14 @@ func newSelfMetrics(addr string) *selfMetrics {
 		constLabels, labels...)
 
 	c.summaryVec("recv_bandwidth_bytes_rate", "Receiving rate in bytes/second.",
-		constLabels, labels...)
+		constLabels, "name", "id")
 	c.summaryVec("recv_pkg_rate", "Receiving rate in requests/second.",
-		constLabels, labels...)
+		constLabels, "name", "id")
 
 	c.summaryVec("send_bandwidth_bytes_rate", "Sending rate in bytes/second.",
-		constLabels, labels...)
+		constLabels, "name", "id")
 	c.summaryVec("send_pkg_rate", "Sending rate in requests/second.",
-		constLabels, labels...)
+		constLabels, "name", "id")
 
 	return &selfMetrics{c}
 }
@@ -243,11 +242,11 @@ func (m *selfMetrics) set(ss *selfStats, name, id, state string) {
 	m.gaugeVecs["uptime_seconds"].WithLabelValues(name, id, state).Set(tdiff.Seconds())
 
 	if state == stateFollower {
-		m.summaryVecs["recv_bandwidth_rate"].WithLabelValues(name, id).Observe(ss.RecvBandwidthRate)
+		m.summaryVecs["recv_bandwidth_bytes_rate"].WithLabelValues(name, id).Observe(ss.RecvBandwidthRate)
 		m.summaryVecs["recv_pkg_rate"].WithLabelValues(name, id).Observe(ss.RecvPkgRate)
 	}
 	if state == stateLeader {
-		m.summaryVecs["send_bandwidth_rate"].WithLabelValues(name, id).Observe(ss.SendBandwidthRate)
+		m.summaryVecs["send_bandwidth_bytes_rate"].WithLabelValues(name, id).Observe(ss.SendBandwidthRate)
 		m.summaryVecs["send_pkg_rate"].WithLabelValues(name, id).Observe(ss.SendPkgRate)
 	}
 }

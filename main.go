@@ -44,8 +44,8 @@ func (ec etcdCollectors) refresh(machines []string) {
 		}
 	}
 
-	for nm := range newMachines {
-		e := NewExporter(nm)
+	for nm, port := range newMachines {
+		e := NewExporter(nm + port)
 		prometheus.MustRegister(e)
 		ec[nm] = e
 	}
