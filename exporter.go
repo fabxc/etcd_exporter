@@ -14,8 +14,8 @@ import (
 const (
 	namespace = "etcd"
 
-	stateFollower = "StateFollower"
-	stateLeader   = "StateLeader"
+	stateFollower = "follower"
+	stateLeader   = "leader"
 
 	endpointSelfStats   = "/v2/stats/self"
 	endpointLeaderStats = "/v2/stats/leader"
@@ -130,8 +130,8 @@ func (e *exporter) scrapeAll() {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
-	e.selfMetrics.set(ses, ses.Name, ses.ID, ses.State)
-	e.storeMetrics.set(sts, ses.Name, ses.ID, ses.State)
+	e.selfMetrics.set(ses, ses.Name, ses.State)
+	e.storeMetrics.set(sts, ses.Name, ses.State)
 	if ses.State == stateLeader {
 		e.leaderMetrics.set(ls, ls.Leader)
 	}
@@ -209,7 +209,7 @@ func newLeaderMetrics(addr string) *leaderMetrics {
 		summaryVecs: make(map[string]*prometheus.SummaryVec),
 	}
 	constLabels := prometheus.Labels{"instance": addr}
-	labels := []string{"leader_id", "follower_id"}
+	labels := []string{"leader_name", "follower_name"}
 
 	c.gaugeVec("follower_fail_total", "Total number of failed Raft RPC requests.",
 		constLabels, labels...)
@@ -230,20 +230,20 @@ func newLeaderMetrics(addr string) *leaderMetrics {
 	return &leaderMetrics{c}
 }
 
-func (m *leaderMetrics) set(stats *leaderSats, lid string) {
-	obs := func(dst, fid string, v float64) {
-		m.summaryVecs[dst].WithLabelValues(lid, fid).Observe(v)
+func (m *leaderMetrics) set(stats *leaderSats, lname string) {
+	obs := func(dst, fname string, v float64) {
+		m.summaryVecs[dst].WithLabelValues(lname, fname).Observe(v)
 	}
 
-	for fid, fs := range stats.Followers {
-		m.gaugeVecs["follower_fail_total"].WithLabelValues(lid, fid).Set(float64(fs.Counts.Fail))
-		m.gaugeVecs["follower_success_total"].WithLabelValues(lid, fid).Set(float64(fs.Counts.Success))
+	for fname, fs := range stats.Followers {
+		m.gaugeVecs["follower_fail_total"].WithLabelValues(lname, fname).Set(float64(fs.Counts.Fail))
+		m.gaugeVecs["follower_success_total"].WithLabelValues(lname, fname).Set(float64(fs.Counts.Success))
 
-		obs("follower_latency_milliseconds", fid, fs.Latency.Current)
-		obs("follower_latency_milliseconds_avg", fid, fs.Latency.Average)
-		obs("follower_latency_milliseconds_min", fid, fs.Latency.Minimum)
-		obs("follower_latency_milliseconds_max", fid, fs.Latency.Maximum)
-		obs("follower_latency_milliseconds_stddev", fid, fs.Latency.Stddev)
+		obs("follower_latency_milliseconds", fname, fs.Latency.Current)
+		obs("follower_latency_milliseconds_avg", fname, fs.Latency.Average)
+		obs("follower_latency_milliseconds_min", fname, fs.Latency.Minimum)
+		obs("follower_latency_milliseconds_max", fname, fs.Latency.Maximum)
+		obs("follower_latency_milliseconds_stddev", fname, fs.Latency.Stddev)
 	}
 }
 
@@ -279,7 +279,7 @@ func newSelfMetrics(addr string) *selfMetrics {
 		summaryVecs: make(map[string]*prometheus.SummaryVec),
 	}
 	constLabels := prometheus.Labels{"instance": addr}
-	labels := []string{"name", "id", "state"}
+	labels := []string{"name", "state"}
 
 	c.gaugeVec("recv_append_requests_total", "Total number of received append requests.",
 		constLabels, labels...)
@@ -301,20 +301,20 @@ func newSelfMetrics(addr string) *selfMetrics {
 	return &selfMetrics{c}
 }
 
-func (m *selfMetrics) set(ss *selfStats, name, id, state string) {
-	m.gaugeVecs["recv_append_requests_total"].WithLabelValues(name, id, state).Set(float64(ss.RecvAppendRequestCount))
-	m.gaugeVecs["send_append_requests_total"].WithLabelValues(name, id, state).Set(float64(ss.SendAppendRequestCount))
+func (m *selfMetrics) set(ss *selfStats, name, state string) {
+	m.gaugeVecs["recv_append_requests_total"].WithLabelValues(name, state).Set(float64(ss.RecvAppendRequestCount))
+	m.gaugeVecs["send_append_requests_total"].WithLabelValues(name, state).Set(float64(ss.SendAppendRequestCount))
 
 	tdiff := time.Since(time.Time(ss.StartTime))
-	m.gaugeVecs["uptime_seconds"].WithLabelValues(name, id, state).Set(tdiff.Seconds())
+	m.gaugeVecs["uptime_seconds"].WithLabelValues(name, state).Set(tdiff.Seconds())
 
 	if state == stateFollower {
-		m.summaryVecs["recv_bandwidth_bytes_rate"].WithLabelValues(name, id).Observe(ss.RecvBandwidthRate)
-		m.summaryVecs["recv_pkg_rate"].WithLabelValues(name, id).Observe(ss.RecvPkgRate)
+		m.summaryVecs["recv_bandwidth_rate"].WithLabelValues(name).Observe(ss.RecvBandwidthRate)
+		m.summaryVecs["recv_pkg_rate"].WithLabelValues(name).Observe(ss.RecvPkgRate)
 	}
 	if state == stateLeader {
-		m.summaryVecs["send_bandwidth_bytes_rate"].WithLabelValues(name, id).Observe(ss.SendBandwidthRate)
-		m.summaryVecs["send_pkg_rate"].WithLabelValues(name, id).Observe(ss.SendPkgRate)
+		m.summaryVecs["send_bandwidth_rate"].WithLabelValues(name).Observe(ss.SendBandwidthRate)
+		m.summaryVecs["send_pkg_rate"].WithLabelValues(name).Observe(ss.SendPkgRate)
 	}
 }
 
@@ -330,7 +330,7 @@ func newStoreMetrics(addr string) *storeMetrics {
 		summaryVecs: make(map[string]*prometheus.SummaryVec),
 	}
 	constLabels := prometheus.Labels{"instance": addr}
-	labels := []string{"name", "id", "state"}
+	labels := []string{"name", "state"}
 
 	// global counters
 	//
@@ -378,9 +378,9 @@ func newStoreMetrics(addr string) *storeMetrics {
 	return &storeMetrics{c}
 }
 
-func (m *storeMetrics) set(stats map[string]int64, name, id, state string) {
+func (m *storeMetrics) set(stats map[string]int64, name, state string) {
 	set := func(dst, src string) {
-		m.gaugeVecs[dst].WithLabelValues(name, id, state).Set(float64(stats[src]))
+		m.gaugeVecs[dst].WithLabelValues(name, state).Set(float64(stats[src]))
 	}
 	set("compare_and_swap_fail_total", "compareAndSwapFail")
 	set("compare_and_swap_success_total", "compareAndSwapSuccess")
