@@ -257,27 +257,6 @@ type storeMetrics struct {
 	collector
 }
 
-func (m *storeMetrics) set(stats map[string]int64, ls ...string) {
-	set := func(dst, src string) {
-		m.gaugeVecs[dst].WithLabelValues(ls...).Set(float64(stats[src]))
-	}
-	set("compare_and_swap_fail", "compareAndSwapFail")
-	set("compare_and_swap_success", "compareAndSwapSuccess")
-	set("create_fail", "createFail")
-	set("create_success", "createSuccess")
-	set("delete_fail", "deleteFail")
-	set("delete_success", "deleteSuccess")
-	set("expire_count", "expireCount")
-	set("sets_fail", "setsFail")
-	set("sets_success", "setsSuccess")
-	set("update_fail", "updateFail")
-	set("update_success", "updateSuccess")
-
-	set("gets_fail", "getsFail")
-	set("gets_success", "getsSuccess")
-	set("watchers", "watchers")
-}
-
 func newStoreMetrics(addr string) *storeMetrics {
 	c := collector{
 		subsystem:   "store",
@@ -288,6 +267,11 @@ func newStoreMetrics(addr string) *storeMetrics {
 	labels := []string{"name", "id", "state"}
 
 	// global counters
+	//
+	// TODO: the global counters should be equal for all nodes. If they can differ between nodes
+	// this might be an interesting metric. Otherwise they should only be scraped once without
+	// any labels. This might require some register/unregister to avoid duplicate metric errors
+	// while still being able to switch the node they are scraped from.
 	c.gaugeVec("compare_and_swap_fail_total", "Total number of failed compare-and-swap operations.",
 		constLabels, labels...)
 	c.gaugeVec("compare_and_swap_success_total", "Total number of successful compare-and-swap operations.",
@@ -328,6 +312,27 @@ func newStoreMetrics(addr string) *storeMetrics {
 	return &storeMetrics{c}
 }
 
+func (m *storeMetrics) set(stats map[string]int64, name, id, state string) {
+	set := func(dst, src string) {
+		m.gaugeVecs[dst].WithLabelValues(name, id, state).Set(float64(stats[src]))
+	}
+	set("compare_and_swap_fail", "compareAndSwapFail")
+	set("compare_and_swap_success", "compareAndSwapSuccess")
+	set("create_fail", "createFail")
+	set("create_success", "createSuccess")
+	set("delete_fail", "deleteFail")
+	set("delete_success", "deleteSuccess")
+	set("expire_count", "expireCount")
+	set("sets_fail", "setsFail")
+	set("sets_success", "setsSuccess")
+	set("update_fail", "updateFail")
+	set("update_success", "updateSuccess")
+
+	set("gets_fail", "getsFail")
+	set("gets_success", "getsSuccess")
+	set("watchers", "watchers")
+}
+
 // collector holds GaugeVecs and SummaryVecs and provides functionality
 // to reset, collect, and describe them at once.
 type collector struct {
@@ -337,7 +342,7 @@ type collector struct {
 	summaryVecs map[string]*prometheus.SummaryVec
 }
 
-// gaugeVec registers a new GaugeVec for the collector
+// gaugeVec registers a new GaugeVec for the collector.
 func (c *collector) gaugeVec(name, help string, constLabels prometheus.Labels, labels ...string) {
 	c.gaugeVecs[name] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace:   namespace,
@@ -348,7 +353,7 @@ func (c *collector) gaugeVec(name, help string, constLabels prometheus.Labels, l
 	}, labels)
 }
 
-// summaryVec registers a new SummaryVec for the collector
+// summaryVec registers a new SummaryVec for the collector.
 func (c *collector) summaryVec(name, help string, constLabels prometheus.Labels, labels ...string) {
 	c.summaryVecs[name] = prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace:   namespace,
@@ -359,6 +364,7 @@ func (c *collector) summaryVec(name, help string, constLabels prometheus.Labels,
 	}, labels)
 }
 
+// Describe implements the prometheus.Collector interface
 func (c *collector) Describe(ch chan<- *prometheus.Desc) {
 	for _, v := range c.gaugeVecs {
 		v.Describe(ch)
@@ -368,6 +374,7 @@ func (c *collector) Describe(ch chan<- *prometheus.Desc) {
 	}
 }
 
+// Collect implements the prometheus.Collector interface..
 func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	for _, v := range c.gaugeVecs {
 		v.Collect(ch)
