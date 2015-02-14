@@ -289,14 +289,14 @@ func newSelfMetrics(addr string) *selfMetrics {
 		constLabels, labels...)
 
 	c.summaryVec("recv_bandwidth_bytes_rate", "Receiving rate in bytes/second.",
-		constLabels, "name", "id")
+		constLabels, "name")
 	c.summaryVec("recv_pkg_rate", "Receiving rate in requests/second.",
-		constLabels, "name", "id")
+		constLabels, "name")
 
 	c.summaryVec("send_bandwidth_bytes_rate", "Sending rate in bytes/second.",
-		constLabels, "name", "id")
+		constLabels, "name")
 	c.summaryVec("send_pkg_rate", "Sending rate in requests/second.",
-		constLabels, "name", "id")
+		constLabels, "name")
 
 	return &selfMetrics{c}
 }
@@ -309,11 +309,11 @@ func (m *selfMetrics) set(ss *selfStats, name, state string) {
 	m.gaugeVecs["uptime_seconds"].WithLabelValues(name, state).Set(tdiff.Seconds())
 
 	if state == stateFollower {
-		m.summaryVecs["recv_bandwidth_rate"].WithLabelValues(name).Observe(ss.RecvBandwidthRate)
+		m.summaryVecs["recv_bandwidth_bytes_rate"].WithLabelValues(name).Observe(ss.RecvBandwidthRate)
 		m.summaryVecs["recv_pkg_rate"].WithLabelValues(name).Observe(ss.RecvPkgRate)
 	}
 	if state == stateLeader {
-		m.summaryVecs["send_bandwidth_rate"].WithLabelValues(name).Observe(ss.SendBandwidthRate)
+		m.summaryVecs["send_bandwidth_bytes_rate"].WithLabelValues(name).Observe(ss.SendBandwidthRate)
 		m.summaryVecs["send_pkg_rate"].WithLabelValues(name).Observe(ss.SendPkgRate)
 	}
 }
