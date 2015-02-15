@@ -21,6 +21,7 @@ var (
 	refreshInterval = flag.Duration("web.refresh", DefaultRefreshInterval, "Refresh interval to sync machines with the etcd cluster.")
 	listenAddress   = flag.String("web.listen-address", ":9105", "Address to listen on for web interface and telemetry.")
 	metricsPath     = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
+	singleMode      = flag.Bool("exp.single-mode", false, "Whether the exporter should scrape the whole etcd cluster.")
 )
 
 const (
