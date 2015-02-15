@@ -8,19 +8,9 @@
 			"Rev": "9352842ae63ee1d7e74e074ce7bb10370c4b6b9e"
 		},
 		{
-			"ImportPath": "github.com/coreos/etcd/etcdserver/etcdhttp/httptypes",
-			"Comment": "v2.0.1-29-g6d9d7b4",
-			"Rev": "6d9d7b449745abe72857b5721f8e0b16010dfb79"
-		},
-		{
-			"ImportPath": "github.com/coreos/etcd/pkg/types",
-			"Comment": "v2.0.1-29-g6d9d7b4",
-			"Rev": "6d9d7b449745abe72857b5721f8e0b16010dfb79"
-		},
-		{
 			"ImportPath": "github.com/coreos/go-etcd/etcd",
-			"Comment": "v0.4.6-6-g4734e7a",
-			"Rev": "4734e7aca379f0d7fcdf04fbb2101696a4b45ce8"
+			"Comment": "v0.4.6",
+			"Rev": "6aa2da5a7a905609c93036b9307185a04a5a84a5"
 		},
 		{
 			"ImportPath": "github.com/matttproud/golang_protobuf_extensions/ext",
