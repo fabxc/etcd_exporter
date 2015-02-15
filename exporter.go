@@ -157,6 +157,25 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- e.totalScrapes
 }
 
+// Collect implements the prometheus.Collector interface.
+func (e *exporter) Collect(ch chan<- prometheus.Metric) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	// do not accumulate a scrape queue
+	if !e.scraping {
+		go e.scrapeAll()
+		e.scraping = true
+	}
+
+	e.selfMetrics.Collect(ch)
+	e.leaderMetrics.Collect(ch)
+	e.storeMetrics.Collect(ch)
+
+	ch <- e.up
+	ch <- e.totalScrapes
+}
+
 // leaderStats holds etcd's leader stats information.
 type leaderSats struct {
 	Leader string `json:"leader"`
