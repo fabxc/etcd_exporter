@@ -28,8 +28,9 @@ type exporter struct {
 	mutex    sync.RWMutex
 	scraping bool
 
-	up           prometheus.Gauge
-	totalScrapes prometheus.Counter
+	up             prometheus.Gauge
+	totalScrapes   prometheus.Counter
+	scrapeDuration prometheus.Gauge
 
 	selfMetrics   *selfMetrics
 	storeMetrics  *storeMetrics
@@ -53,6 +54,12 @@ func NewExporter(addr string, timeout time.Duration) *exporter {
 			Namespace:   namespace,
 			Name:        "exporter_total_scrapes",
 			Help:        "Total number of scrapes for the node.",
+			ConstLabels: prometheus.Labels{"host": addr},
+		}),
+		scrapeDuration: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace:   namespace,
+			Name:        "exporter_scrape_duration_seconds",
+			Help:        "Duration of last scrape.",
 			ConstLabels: prometheus.Labels{"host": addr},
 		}),
 
@@ -109,6 +116,8 @@ func (e *exporter) scrapeAll() {
 	e.leaderMetrics.Reset()
 	e.storeMetrics.Reset()
 
+	start := time.Now()
+
 	ses := new(selfStats)
 	err = e.scrape(endpointSelfStats, ses)
 	if err != nil {
@@ -135,6 +144,8 @@ func (e *exporter) scrapeAll() {
 	if ses.State == stateLeader {
 		e.leaderMetrics.set(ls, ls.Leader)
 	}
+
+	e.scrapeDuration.Set(time.Since(start).Seconds())
 	e.scraping = false
 }
 
@@ -155,6 +166,7 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 
 	ch <- e.up
 	ch <- e.totalScrapes
+	ch <- e.scrapeDuration
 }
 
 // leaderStats holds etcd's leader stats information.
