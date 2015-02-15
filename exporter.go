@@ -94,29 +94,33 @@ func (e *exporter) Describe(ch chan<- *prometheus.Desc) {
 
 	ch <- e.up.Desc()
 	ch <- e.totalScrapes.Desc()
+	ch <- e.scrapeDuration.Desc()
 }
 
 // scrapeAll scrapes all endpoints and provides new stats through the scrapedStats chan.
 func (e *exporter) scrapeAll() {
 	var err error
+	start := time.Now()
 	// mark instance as down on scrape error
 	defer func() {
 		e.mutex.Lock()
+
 		e.totalScrapes.Inc()
+		e.scrapeDuration.Set(time.Since(start).Seconds())
+
 		if err != nil {
 			log.Printf("exporter %s: error scraping etcd process:", e.addr, err)
 			e.up.Set(0)
 		} else {
 			e.up.Set(1)
 		}
+		e.scraping = false
 		e.mutex.Unlock()
 	}()
 
 	e.selfMetrics.Reset()
 	e.leaderMetrics.Reset()
 	e.storeMetrics.Reset()
-
-	start := time.Now()
 
 	ses := new(selfStats)
 	err = e.scrape(endpointSelfStats, ses)
@@ -144,9 +148,6 @@ func (e *exporter) scrapeAll() {
 	if ses.State == stateLeader {
 		e.leaderMetrics.set(ls, ls.Leader)
 	}
-
-	e.scrapeDuration.Set(time.Since(start).Seconds())
-	e.scraping = false
 }
 
 // Collect implements the prometheus.Collector interface.
