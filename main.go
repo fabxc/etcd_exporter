@@ -16,12 +16,15 @@ import (
 )
 
 var (
-	etcdAddress     = flag.String("etcd.address", "http://127.0.0.1:4001", "Address of the initial etcd instance.")
-	etcdTimeout     = flag.Duration("haproxy.timeout", DefaultTimeout, "Timeout for scraping an etcd member.")
-	refreshInterval = flag.Duration("web.refresh", DefaultRefreshInterval, "Refresh interval to sync machines with the etcd cluster.")
-	listenAddress   = flag.String("web.listen-address", ":9105", "Address to listen on for web interface and telemetry.")
-	metricsPath     = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
+	etcdPid     = flag.Int("etcd.pid", 0, "Pid of the etcd process.")
+	etcdAddress = flag.String("etcd.address", "http://127.0.0.1:4001", "Address of the initial etcd instance.")
+	etcdTimeout = flag.Duration("etcd.timeout", DefaultTimeout, "Timeout for scraping an etcd member.")
+
+	listenAddress = flag.String("web.listen-address", ":9105", "Address to listen on for web interface and telemetry.")
+	metricsPath   = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
+
 	singleMode      = flag.Bool("exp.single-mode", false, "Whether the exporter should scrape the whole etcd cluster.")
+	refreshInterval = flag.Duration("exp.refresh", DefaultRefreshInterval, "Refresh interval to sync machines with the etcd cluster.")
 )
 
 const (
@@ -72,21 +75,39 @@ func (ec etcdCollectors) refresh(machines []string) {
 func main() {
 	flag.Parse()
 
-	c := etcd.NewClient([]string{*etcdAddress})
-	collectors := etcdCollectors{}
-
 	log.Println("start exporting etcd from", *etcdAddress)
 
-	go func() {
-		for {
-			if c.SyncCluster() {
-				collectors.refresh(c.GetCluster())
+	if *singleMode {
+		c := etcd.NewClient([]string{*etcdAddress})
+		collectors := etcdCollectors{}
+
+		go func() {
+			for {
+				if c.SyncCluster() {
+					collectors.refresh(c.GetCluster())
+				}
+				<-time.After(*refreshInterval)
 			}
-			<-time.After(*refreshInterval)
+		}()
+	} else {
+		if *etcdPid != 0 {
+			pc := prometheus.NewProcessCollector(*etcdPid, namespace)
+			prometheus.MustRegister(pc)
 		}
-	}()
+		exp := NewExporter(*etcdAddress, *etcdTimeout)
+		prometheus.MustRegister(exp)
+	}
 
 	http.Handle(*metricsPath, prometheus.Handler())
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html>
+             <head><title>Etcd Exporter</title></head>
+             <body>
+             <h1>Etcd Exporter</h1>
+             <p><a href='` + *metricsPath + `'>Metrics</a></p>
+             </body>
+             </html>`))
+	})
 	err := http.ListenAndServe(*listenAddress, nil)
 	if err != nil {
 		log.Fatal(err)

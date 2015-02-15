@@ -47,13 +47,13 @@ func NewExporter(addr string, timeout time.Duration) *exporter {
 			Namespace:   namespace,
 			Name:        "up",
 			Help:        "Was the last scrape of etcd successful.",
-			ConstLabels: prometheus.Labels{"instance": addr},
+			ConstLabels: prometheus.Labels{"host": addr},
 		}),
 		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace:   namespace,
 			Name:        "exporter_total_scrapes",
 			Help:        "Total number of scrapes for the node.",
-			ConstLabels: prometheus.Labels{"instance": addr},
+			ConstLabels: prometheus.Labels{"host": addr},
 		}),
 
 		selfMetrics:   newSelfMetrics(addr),
@@ -186,7 +186,7 @@ type leaderMetrics struct {
 func newLeaderMetrics(addr string) *leaderMetrics {
 	c := newCollector("leader")
 
-	constLabels := prometheus.Labels{"instance": addr}
+	constLabels := prometheus.Labels{"host": addr}
 	labels := []string{"leader_id", "follower_id"}
 
 	c.counterVec("follower_fail_total", "Total number of failed Raft RPC requests.",
@@ -253,7 +253,7 @@ type selfMetrics struct {
 func newSelfMetrics(addr string) *selfMetrics {
 	c := newCollector("self")
 
-	constLabels := prometheus.Labels{"instance": addr}
+	constLabels := prometheus.Labels{"host": addr}
 	labels := []string{"name", "id"}
 
 	c.gaugeVec("leader", "Whether the node is the leader or a follower.",
