@@ -1,0 +1,60 @@
+{
+	"ImportPath": "github.com/fabxc/etcd_exporter",
+	"GoVersion": "go1.4.1",
+	"Deps": [
+		{
+			"ImportPath": "code.google.com/p/goprotobuf/proto",
+			"Comment": "go.r60-163",
+			"Rev": "9352842ae63ee1d7e74e074ce7bb10370c4b6b9e"
+		},
+		{
+			"ImportPath": "github.com/coreos/etcd/etcdserver/etcdhttp/httptypes",
+			"Comment": "v2.0.1-29-g6d9d7b4",
+			"Rev": "6d9d7b449745abe72857b5721f8e0b16010dfb79"
+		},
+		{
+			"ImportPath": "github.com/coreos/etcd/pkg/types",
+			"Comment": "v2.0.1-29-g6d9d7b4",
+			"Rev": "6d9d7b449745abe72857b5721f8e0b16010dfb79"
+		},
+		{
+			"ImportPath": "github.com/coreos/go-etcd/etcd",
+			"Comment": "v0.4.6-6-g4734e7a",
+			"Rev": "4734e7aca379f0d7fcdf04fbb2101696a4b45ce8"
+		},
+		{
+			"ImportPath": "github.com/matttproud/golang_protobuf_extensions/ext",
+			"Rev": "7a864a042e844af638df17ebbabf8183dace556a"
+		},
+		{
+			"ImportPath": "github.com/prometheus/client_golang/_vendor/goautoneg",
+			"Comment": "0.1.0-16-gacbd2d3",
+			"Rev": "acbd2d3eacdbcc66aa4079c45da6108419cb34d1"
+		},
+		{
+			"ImportPath": "github.com/prometheus/client_golang/_vendor/perks/quantile",
+			"Comment": "0.1.0-16-gacbd2d3",
+			"Rev": "acbd2d3eacdbcc66aa4079c45da6108419cb34d1"
+		},
+		{
+			"ImportPath": "github.com/prometheus/client_golang/model",
+			"Comment": "0.1.0-16-gacbd2d3",
+			"Rev": "acbd2d3eacdbcc66aa4079c45da6108419cb34d1"
+		},
+		{
+			"ImportPath": "github.com/prometheus/client_golang/prometheus",
+			"Comment": "0.1.0-16-gacbd2d3",
+			"Rev": "acbd2d3eacdbcc66aa4079c45da6108419cb34d1"
+		},
+		{
+			"ImportPath": "github.com/prometheus/client_golang/text",
+			"Comment": "0.1.0-16-gacbd2d3",
+			"Rev": "acbd2d3eacdbcc66aa4079c45da6108419cb34d1"
+		},
+		{
+			"ImportPath": "github.com/prometheus/client_model/go",
+			"Comment": "model-0.0.2-10-gbc9454c",
+			"Rev": "bc9454ca562dc050e060ea61a1c0e562a189850f"
+		}
+	]
+}
