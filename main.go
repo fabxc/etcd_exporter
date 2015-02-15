@@ -4,7 +4,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -29,15 +29,21 @@ type etcdCollectors map[string]prometheus.Collector
 // refresh registers/unregisters exporters based on the given
 // set of machines of the cluster.
 func (ec etcdCollectors) refresh(machines []string) {
-	// TODO: also dedup schema
-	newMachines := map[string]string{}
+	newMachines := map[string]*url.URL{}
 	for _, nm := range machines {
-		p := strings.SplitAfter(nm, ":")
-		newMachines[p[0]+p[1]] = p[2]
+		u, err := url.Parse(nm)
+		if err != nil {
+			log.Println("error parsing machine url", nm, ":", err)
+			continue
+		}
+		if _, ok := newMachines[u.Host]; !ok || u.Scheme == "https" {
+			newMachines[u.Host] = u
+		}
 	}
 
 	for m, c := range ec {
 		if _, ok := newMachines[m]; !ok {
+			log.Println("machine", m, "left")
 			prometheus.Unregister(c)
 			delete(ec, m)
 		} else {
@@ -45,8 +51,8 @@ func (ec etcdCollectors) refresh(machines []string) {
 		}
 	}
 
-	for nm, port := range newMachines {
-		e := NewExporter(nm + port)
+	for nm, u := range newMachines {
+		e := NewExporter(u.String())
 		prometheus.MustRegister(e)
 		ec[nm] = e
 	}
@@ -58,8 +64,11 @@ func main() {
 	c := etcd.NewClient([]string{*etcdAddress})
 	collectors := etcdCollectors{}
 
+	log.Println("start exporting etcd from", *etcdAddress)
+
 	go func() {
 		for {
+			log.Println(collectors)
 			if c.SyncCluster() {
 				collectors.refresh(c.GetCluster())
 			}

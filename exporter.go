@@ -98,6 +98,8 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 		ch <- e.totalScrapes
 	}()
 
+	log.Println("exporter: collecting metrics from", e.addr)
+
 	e.selfMetrics.Reset()
 	e.storeMetrics.Reset()
 	e.leaderMetrics.Reset()
