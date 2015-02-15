@@ -8,9 +8,12 @@ func TestCollectorsMap(t *testing.T) {
 	ec := etcdCollectors{}
 
 	// test deduplication
-	ec.refresh([]string{"http://my.machine:4001", "http://my.machine:2380"})
+	ec.refresh([]string{"https://my.machine:4001", "http://my.machine:4001"})
 	if len(ec) != 1 {
 		t.Errorf("want same machine added exactly once")
+	}
+	if ec["my.machine:4001"].(*exporter).addr[:5] != "https" {
+		t.Errorf("wrong schema, https should be prioritized")
 	}
 
 	// test join

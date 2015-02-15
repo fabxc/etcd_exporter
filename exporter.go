@@ -89,7 +89,7 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 
 	defer func() {
 		if err != nil {
-			log.Println("error scraping etcd process:", err)
+			log.Printf("exporter %s: error scraping etcd process:", e.addr, err)
 			e.up.Set(0)
 		} else {
 			e.up.Set(1)
@@ -98,18 +98,16 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 		ch <- e.totalScrapes
 	}()
 
-	log.Println("exporter: collecting metrics from", e.addr)
-
 	e.selfMetrics.Reset()
 	e.storeMetrics.Reset()
 	e.leaderMetrics.Reset()
 
-	var ses selfStats
-	err = e.scrape(endpointSelfStats, &ses)
+	ses := new(selfStats)
+	err = e.scrape(endpointSelfStats, ses)
 	if err != nil {
 		return
 	}
-	e.selfMetrics.set(&ses, ses.Name, ses.ID, ses.State)
+	e.selfMetrics.set(ses, ses.Name, ses.ID, ses.State)
 	e.selfMetrics.Collect(ch)
 
 	sts := make(map[string]int64)
@@ -121,12 +119,12 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 	e.storeMetrics.Collect(ch)
 
 	if ses.State == stateLeader {
-		var ls leaderSats
-		err = e.scrape(endpointLeaderStats, &ls)
+		ls := new(leaderSats)
+		err = e.scrape(endpointLeaderStats, ls)
 		if err != nil {
 			return
 		}
-		e.leaderMetrics.set(&ls, ls.Leader)
+		e.leaderMetrics.set(ls, ls.Leader)
 		e.leaderMetrics.Collect(ch)
 	}
 }

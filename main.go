@@ -33,7 +33,7 @@ func (ec etcdCollectors) refresh(machines []string) {
 	for _, nm := range machines {
 		u, err := url.Parse(nm)
 		if err != nil {
-			log.Println("error parsing machine url", nm, ":", err)
+			log.Printf("error parsing machine url %s: %s", nm, err)
 			continue
 		}
 		if _, ok := newMachines[u.Host]; !ok || u.Scheme == "https" {
@@ -43,7 +43,7 @@ func (ec etcdCollectors) refresh(machines []string) {
 
 	for m, c := range ec {
 		if _, ok := newMachines[m]; !ok {
-			log.Println("machine", m, "left")
+			log.Printf("machine %s left, stopping exporting", m)
 			prometheus.Unregister(c)
 			delete(ec, m)
 		} else {
@@ -52,6 +52,7 @@ func (ec etcdCollectors) refresh(machines []string) {
 	}
 
 	for nm, u := range newMachines {
+		log.Printf("machine %s joined, start exporting", nm)
 		e := NewExporter(u.String())
 		prometheus.MustRegister(e)
 		ec[nm] = e
@@ -68,7 +69,6 @@ func main() {
 
 	go func() {
 		for {
-			log.Println(collectors)
 			if c.SyncCluster() {
 				collectors.refresh(c.GetCluster())
 			}
