@@ -29,6 +29,11 @@ type etcdCollectors map[string]prometheus.Collector
 // refresh registers/unregisters exporters based on the given
 // set of machines of the cluster.
 func (ec etcdCollectors) refresh(machines []string) {
+	// TODO: as of etcd v2.0 members may advertise multiple peer addresses so
+	// deduping by host:port is not sufficient as we might scrape the same member
+	// twice.
+	// Deduping should be done by member ID which is available at /v2/members in v2.0.
+	// Should be lined up with switching to etcd/client.
 	newMachines := map[string]*url.URL{}
 	for _, nm := range machines {
 		u, err := url.Parse(nm)
