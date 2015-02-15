@@ -29,6 +29,7 @@ type etcdCollectors map[string]prometheus.Collector
 // refresh registers/unregisters exporters based on the given
 // set of machines of the cluster.
 func (ec etcdCollectors) refresh(machines []string) {
+	// TODO: also dedup schema
 	newMachines := map[string]string{}
 	for _, nm := range machines {
 		p := strings.SplitAfter(nm, ":")
