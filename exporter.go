@@ -140,7 +140,11 @@ type leaderSats struct {
 		} `json:"counts"`
 
 		Latency struct {
+			Average float64 `json:"average"`
 			Current float64 `json:"current"`
+			Maximum float64 `json:"maximum"`
+			Minimum float64 `json:"minimum"`
+			Stddev  float64 `json:"standardDeviation"`
 		} `json:"latency"`
 	} `json:"followers"`
 }
@@ -167,16 +171,32 @@ func newLeaderMetrics(addr string) *leaderMetrics {
 
 	c.summaryVec("follower_latency_milliseconds", "Current latency of the follower to the leader.",
 		constLabels, labels...)
+	c.summaryVec("follower_latency_milliseconds_avg", "Current latency average of the follower to the leader.",
+		constLabels, labels...)
+	c.summaryVec("follower_latency_milliseconds_min", "Current latency maximum of the follower to the leader.",
+		constLabels, labels...)
+	c.summaryVec("follower_latency_milliseconds_max", "Current latency minimum of the follower to the leader.",
+		constLabels, labels...)
+	c.summaryVec("follower_latency_milliseconds_stddev", "Current latency standard deviation of the follower to the leader.",
+		constLabels, labels...)
 
 	return &leaderMetrics{c}
 }
 
 func (m *leaderMetrics) set(stats *leaderSats, lid string) {
+	obs := func(dst, fid string, v float64) {
+		m.summaryVecs[dst].WithLabelValues(lid, fid).Observe(v)
+	}
+
 	for fid, fs := range stats.Followers {
 		m.gaugeVecs["follower_fail_total"].WithLabelValues(lid, fid).Set(float64(fs.Counts.Fail))
 		m.gaugeVecs["follower_success_total"].WithLabelValues(lid, fid).Set(float64(fs.Counts.Success))
 
-		m.summaryVecs["follower_latency_milliseconds"].WithLabelValues(lid, fid).Observe(float64(fs.Latency.Current))
+		obs("follower_latency_milliseconds", fid, fs.Latency.Current)
+		obs("follower_latency_milliseconds_avg", fid, fs.Latency.Average)
+		obs("follower_latency_milliseconds_min", fid, fs.Latency.Minimum)
+		obs("follower_latency_milliseconds_max", fid, fs.Latency.Maximum)
+		obs("follower_latency_milliseconds_stddev", fid, fs.Latency.Stddev)
 	}
 }
 
