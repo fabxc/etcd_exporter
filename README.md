@@ -4,6 +4,7 @@ This is a simple server that frequently scrapes statistics from all members of a
 and exposes them for to be scraped by Prometheus.
 
 [![Build Status](https://travis-ci.org/fabxc/etcd_exporter.png?branch=master)](https://travis-ci.org/fabxc/etcd_exporter) etcd 2.0.x
+
 [![Build Status](https://travis-ci.org/fabxc/etcd_exporter.png?branch=etcd-v0.4)](https://travis-ci.org/fabxc/etcd_exporter) etcd 0.4.x
 
 [![Docker Repository on Quay.io](https://quay.io/repository/coreos/etcd-git/status "Docker Repository on Quay.io")](https://quay.io/repository/coreos/etcd-git)
