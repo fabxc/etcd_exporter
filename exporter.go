@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,8 +23,10 @@ const (
 )
 
 type exporter struct {
-	client *http.Client
-	addr   string
+	client   *http.Client
+	addr     string
+	mutex    sync.RWMutex
+	scraping bool
 
 	up           prometheus.Gauge
 	totalScrapes prometheus.Counter
@@ -33,10 +36,12 @@ type exporter struct {
 	leaderMetrics *leaderMetrics
 }
 
-func NewExporter(addr string) *exporter {
+func NewExporter(addr string, timeout time.Duration) *exporter {
 	return &exporter{
-		client: &http.Client{},
-		addr:   addr,
+		client: &http.Client{
+			Timeout: timeout,
+		},
+		addr: addr,
 
 		up: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace:   namespace,
@@ -74,6 +79,7 @@ func (e *exporter) scrape(endpoint string, v interface{}) error {
 	return nil
 }
 
+// Describe implements the prometheus.Collector interface.
 func (e *exporter) Describe(ch chan<- *prometheus.Desc) {
 	e.selfMetrics.Describe(ch)
 	e.leaderMetrics.Describe(ch)
@@ -83,50 +89,72 @@ func (e *exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.totalScrapes.Desc()
 }
 
-func (e *exporter) Collect(ch chan<- prometheus.Metric) {
+// scrapeAll scrapes all endpoints and provides new stats through the scrapedStats chan.
+func (e *exporter) scrapeAll() {
 	var err error
-	e.totalScrapes.Inc()
-
+	// mark instance as down on scrape error
 	defer func() {
+		e.mutex.Lock()
+		e.totalScrapes.Inc()
 		if err != nil {
 			log.Printf("exporter %s: error scraping etcd process:", e.addr, err)
 			e.up.Set(0)
 		} else {
 			e.up.Set(1)
 		}
-		ch <- e.up
-		ch <- e.totalScrapes
+		e.mutex.Unlock()
 	}()
 
 	e.selfMetrics.Reset()
-	e.storeMetrics.Reset()
 	e.leaderMetrics.Reset()
+	e.storeMetrics.Reset()
 
 	ses := new(selfStats)
 	err = e.scrape(endpointSelfStats, ses)
 	if err != nil {
 		return
 	}
-	e.selfMetrics.set(ses, ses.Name, ses.ID, ses.State)
-	e.selfMetrics.Collect(ch)
-
 	sts := make(map[string]int64)
 	err = e.scrape(endpointStoreStats, &sts)
 	if err != nil {
 		return
 	}
-	e.storeMetrics.set(sts, ses.Name, ses.ID, ses.State)
-	e.storeMetrics.Collect(ch)
-
+	ls := new(leaderSats)
 	if ses.State == stateLeader {
-		ls := new(leaderSats)
 		err = e.scrape(endpointLeaderStats, ls)
 		if err != nil {
 			return
 		}
-		e.leaderMetrics.set(ls, ls.Leader)
-		e.leaderMetrics.Collect(ch)
 	}
+
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	e.selfMetrics.set(ses, ses.Name, ses.ID, ses.State)
+	e.storeMetrics.set(sts, ses.Name, ses.ID, ses.State)
+	if ses.State == stateLeader {
+		e.leaderMetrics.set(ls, ls.Leader)
+	}
+	e.scraping = false
+}
+
+// Collect implements the prometheus.Collector interface.
+func (e *exporter) Collect(ch chan<- prometheus.Metric) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	// do not accumulate a scrape queue
+	if !e.scraping {
+		go e.scrapeAll()
+		e.scraping = true
+	}
+
+	e.selfMetrics.Collect(ch)
+	e.leaderMetrics.Collect(ch)
+	e.storeMetrics.Collect(ch)
+
+	ch <- e.up
+	ch <- e.totalScrapes
 }
 
 // leaderStats holds etcd's leader stats information.

@@ -17,12 +17,16 @@ import (
 
 var (
 	etcdAddress     = flag.String("etcd.address", "http://127.0.0.1:4001", "Address of the initial etcd instance.")
-	refreshInterval = flag.Duration("etcd.refresh", DefaultRefreshInterval, "Refresh interval to sync machines with the etcd cluster.")
+	etcdTimeout     = flag.Duration("haproxy.timeout", DefaultTimeout, "Timeout for scraping an etcd member.")
+	refreshInterval = flag.Duration("web.refresh", DefaultRefreshInterval, "Refresh interval to sync machines with the etcd cluster.")
 	listenAddress   = flag.String("web.listen-address", ":9105", "Address to listen on for web interface and telemetry.")
 	metricsPath     = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 )
 
-const DefaultRefreshInterval = 10 * time.Second
+const (
+	DefaultTimeout         = 5 * time.Second
+	DefaultRefreshInterval = 10 * time.Second
+)
 
 type etcdCollectors map[string]prometheus.Collector
 
@@ -58,7 +62,7 @@ func (ec etcdCollectors) refresh(machines []string) {
 
 	for nm, u := range newMachines {
 		log.Printf("machine %s joined, start exporting", nm)
-		e := NewExporter(u.String())
+		e := NewExporter(u.String(), *etcdTimeout)
 		prometheus.MustRegister(e)
 		ec[nm] = e
 	}
