@@ -30,7 +30,7 @@ type exporter struct {
 
 	up             prometheus.Gauge
 	totalScrapes   prometheus.Counter
-	scrapeDuration prometheus.Gauge
+	scrapeDuration prometheus.Summary
 
 	selfMetrics   *selfMetrics
 	storeMetrics  *storeMetrics
@@ -56,7 +56,7 @@ func NewExporter(addr string, timeout time.Duration) *exporter {
 			Help:        "Total number of scrapes for the node.",
 			ConstLabels: prometheus.Labels{"host": addr},
 		}),
-		scrapeDuration: prometheus.NewGauge(prometheus.GaugeOpts{
+		scrapeDuration: prometheus.NewSummary(prometheus.SummaryOpts{
 			Namespace:   namespace,
 			Name:        "exporter_scrape_duration_seconds",
 			Help:        "Duration of last scrape.",
@@ -106,10 +106,10 @@ func (e *exporter) scrapeAll() {
 		e.mutex.Lock()
 
 		e.totalScrapes.Inc()
-		e.scrapeDuration.Set(time.Since(start).Seconds())
+		e.scrapeDuration.Observe(time.Since(start).Seconds())
 
 		if err != nil {
-			log.Printf("exporter %s: error scraping etcd process:", e.addr, err)
+			log.Printf("exporter %s: error scraping etcd process: %s", e.addr, err)
 			e.up.Set(0)
 		} else {
 			e.up.Set(1)
@@ -143,10 +143,10 @@ func (e *exporter) scrapeAll() {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
-	e.selfMetrics.set(ses, ses.Name, ses.ID)
-	e.storeMetrics.set(sts, ses.Name, ses.ID)
+	e.selfMetrics.set(ses)
+	e.storeMetrics.set(sts)
 	if ses.State == stateLeader {
-		e.leaderMetrics.set(ls, ls.Leader)
+		e.leaderMetrics.set(ls)
 	}
 }
 
@@ -221,7 +221,8 @@ func newLeaderMetrics(addr string) *leaderMetrics {
 	return &leaderMetrics{c}
 }
 
-func (m *leaderMetrics) set(stats *leaderSats, lid string) {
+func (m *leaderMetrics) set(stats *leaderSats) {
+	lid := stats.Leader
 	set := func(dst, fid string, v float64) {
 		m.gaugeVecs[dst].WithLabelValues(lid, fid).Set(v)
 	}
@@ -267,46 +268,41 @@ func newSelfMetrics(addr string) *selfMetrics {
 	c := newCollector("self")
 
 	constLabels := prometheus.Labels{"host": addr}
-	labels := []string{"name", "id"}
 
-	c.gaugeVec("leader", "Whether the node is the leader or a follower.",
-		constLabels, labels...)
-	c.counterVec("recv_append_requests_total", "Total number of received append requests.",
-		constLabels, labels...)
-	c.counterVec("send_append_requests_total", "Total number of sent append requests.",
-		constLabels, labels...)
-	c.counterVec("uptime_seconds", "Uptime of the node in seconds.",
-		constLabels, labels...)
+	c.gaugeVec("node", "Further properties of the etcd node.", constLabels, "name", "id")
+	c.gaugeVec("leader", "Whether the node is the leader or a follower.", constLabels)
 
-	c.gaugeVec("recv_bandwidth_bytes_rate", "Receiving rate in bytes/second.",
-		constLabels, "name", "id")
-	c.gaugeVec("recv_pkg_rate", "Receiving rate in requests/second.",
-		constLabels, "name", "id")
+	c.counterVec("recv_append_requests_total", "Total number of received append requests.", constLabels)
+	c.counterVec("send_append_requests_total", "Total number of sent append requests.", constLabels)
+	c.counterVec("uptime_seconds", "Uptime of the node in seconds.", constLabels)
 
-	c.gaugeVec("send_bandwidth_bytes_rate", "Sending rate in bytes/second.",
-		constLabels, "name", "id")
-	c.gaugeVec("send_pkg_rate", "Sending rate in requests/second.",
-		constLabels, "name", "id")
+	c.gaugeVec("recv_bandwidth_bytes_rate", "Bytes/second this node is receiving in total.", constLabels)
+	c.gaugeVec("recv_pkg_rate", "Requests/second this not is receiving in total", constLabels)
+
+	c.gaugeVec("send_bandwidth_bytes_rate", "Bytes/second this node is sending in total.", constLabels)
+	c.gaugeVec("send_pkg_rate", "Requests/second this node is sending in total.", constLabels)
 
 	return &selfMetrics{c}
 }
 
-func (m *selfMetrics) set(ss *selfStats, name, id string) {
-	m.counterVecs["recv_append_requests_total"].WithLabelValues(name, id).Set(float64(ss.RecvAppendRequestCount))
-	m.counterVecs["send_append_requests_total"].WithLabelValues(name, id).Set(float64(ss.SendAppendRequestCount))
+func (m *selfMetrics) set(ss *selfStats) {
+	m.gaugeVecs["node"].WithLabelValues(ss.Name, ss.ID).Set(1)
+
+	m.counterVecs["recv_append_requests_total"].With(nil).Set(float64(ss.RecvAppendRequestCount))
+	m.counterVecs["send_append_requests_total"].With(nil).Set(float64(ss.SendAppendRequestCount))
 
 	tdiff := time.Since(time.Time(ss.StartTime))
-	m.counterVecs["uptime_seconds"].WithLabelValues(name, id).Set(tdiff.Seconds())
+	m.counterVecs["uptime_seconds"].With(nil).Set(tdiff.Seconds())
 
 	if ss.State == stateFollower {
-		m.gaugeVecs["leader"].WithLabelValues(name, id).Set(0)
-		m.gaugeVecs["recv_bandwidth_bytes_rate"].WithLabelValues(name, id).Set(ss.RecvBandwidthRate)
-		m.gaugeVecs["recv_pkg_rate"].WithLabelValues(name, id).Set(ss.RecvPkgRate)
+		m.gaugeVecs["leader"].With(nil).Set(0)
+		m.gaugeVecs["recv_bandwidth_bytes_rate"].With(nil).Set(ss.RecvBandwidthRate)
+		m.gaugeVecs["recv_pkg_rate"].With(nil).Set(ss.RecvPkgRate)
 	}
 	if ss.State == stateLeader {
-		m.gaugeVecs["leader"].WithLabelValues(name, id).Set(1)
-		m.gaugeVecs["send_bandwidth_bytes_rate"].WithLabelValues(name, id).Set(ss.SendBandwidthRate)
-		m.gaugeVecs["send_pkg_rate"].WithLabelValues(name, id).Set(ss.SendPkgRate)
+		m.gaugeVecs["leader"].With(nil).Set(1)
+		m.gaugeVecs["send_bandwidth_bytes_rate"].With(nil).Set(ss.SendBandwidthRate)
+		m.gaugeVecs["send_pkg_rate"].With(nil).Set(ss.SendPkgRate)
 	}
 }
 
@@ -319,41 +315,40 @@ func newStoreMetrics(addr string) *storeMetrics {
 	c := newCollector("store")
 
 	constLabels := prometheus.Labels{"host": addr}
-	labels := []string{"name", "id"}
 
-	c.counterVec("expire_total", "Total number of expiries.",
-		constLabels, labels...)
-	c.gaugeVec("watchers", "Current number of watchers.",
-		constLabels, labels...)
+	c.counterVec("expire_total", "Total number of expiries.", constLabels)
+	c.gaugeVec("watchers", "Current number of watchers.", constLabels)
 
-	// global counters
-	labels = append(labels, "operation")
 	// TODO: the global counters should be equal for all nodes. If they can differ between nodes
 	// this might be an interesting metric. Otherwise they should only be scraped once without
 	// any labels. This might require some register/unregister to avoid duplicate metric errors
 	// while still being able to switch the node they are scraped from.
 	c.counterVec("fail_total", "Total number of failed operations",
-		constLabels, labels...)
+		constLabels, "operation")
 	c.counterVec("success_total", "Total number of successful operations",
-		constLabels, labels...)
+		constLabels, "operation")
 
 	return &storeMetrics{c}
 }
 
-func (m *storeMetrics) set(stats map[string]int64, name, id string) {
+func (m *storeMetrics) set(stats map[string]int64) {
 	setOp := func(op string, src string) {
-		m.counterVecs["fail_total"].WithLabelValues(name, id, op).Set(float64(stats[src+"Fail"]))
-		m.counterVecs["success_total"].WithLabelValues(name, id, op).Set(float64(stats[src+"Success"]))
+		m.counterVecs["fail_total"].WithLabelValues(op).Set(float64(stats[src+"Fail"]))
+		m.counterVecs["success_total"].WithLabelValues(op).Set(float64(stats[src+"Success"]))
 	}
+	// global
+	m.counterVecs["expire_total"].With(nil).Set(float64(stats["expireCount"]))
+
 	setOp("compare_and_swap", "compareAndSwap")
 	setOp("create", "create")
-	setOp("delete", "delete")
 	setOp("set", "sets")
 	setOp("update", "update")
-	setOp("get", "gets")
+	setOp("delete", "delete")
 
-	m.gaugeVecs["watchers"].WithLabelValues(name, id).Set(float64(stats["watchers"]))
-	m.counterVecs["expire_total"].WithLabelValues(name, id).Set(float64(stats["expireCount"]))
+	// per-node
+	m.gaugeVecs["watchers"].With(nil).Set(float64(stats["watchers"]))
+
+	setOp("get", "gets")
 }
 
 // collector holds GaugeVecs and SummaryVecs and provides functionality

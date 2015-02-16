@@ -2,9 +2,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,7 +20,7 @@ import (
 )
 
 var (
-	etcdPid     = flag.Int("etcd.pid", 0, "Pid of the etcd process.")
+	etcdPidFile = flag.String("etcd.pid-file", "", "Pid file of the etcd process.")
 	etcdAddress = flag.String("etcd.address", "http://127.0.0.1:4001", "Address of the initial etcd instance.")
 	etcdTimeout = flag.Duration("etcd.timeout", DefaultTimeout, "Timeout for scraping an etcd member.")
 
@@ -29,7 +33,7 @@ var (
 
 const (
 	DefaultTimeout         = 5 * time.Second
-	DefaultRefreshInterval = 10 * time.Second
+	DefaultRefreshInterval = 15 * time.Second
 )
 
 type etcdCollectors map[string]prometheus.Collector
@@ -90,8 +94,19 @@ func main() {
 			}
 		}()
 	} else {
-		if *etcdPid != 0 {
-			pc := prometheus.NewProcessCollector(*etcdPid, namespace)
+		if *etcdPidFile != "" {
+			pc := prometheus.NewProcessCollectorPIDFn(
+				func() (int, error) {
+					content, err := ioutil.ReadFile(*etcdPidFile)
+					if err != nil {
+						return 0, fmt.Errorf("error reading pid file: %s", err)
+					}
+					value, err := strconv.Atoi(strings.TrimSpace(string(content)))
+					if err != nil {
+						return 0, fmt.Errorf("error parsing pid file: %s", err)
+					}
+					return value, nil
+				}, namespace)
 			prometheus.MustRegister(pc)
 		}
 		exp := NewExporter(*etcdAddress, *etcdTimeout)
