@@ -1,0 +1,71 @@
+{{ template "head" . }}
+
+{{ template "prom_right_table_head" }}
+{{ template "prom_right_table_job_head" "etcd" }}
+
+<tr><th colspan="2">Cluster</th></tr>
+
+{{ range printf "etcd_self_leader{job='etcd'} == 1" | query }}
+<tr>
+  <td>Leader</td>
+  <td>{{ .Labels.host }}</td>
+</tr>
+{{ end}}
+<tr>
+  <td>Query Fail Ratio</td>
+  <td>{{ template "prom_query_drilldown" (args "sum by (job)(rate(etcd_store_fail_total{job='etcd'}[5m])) / (sum by (job)(rate(etcd_store_success_total{job='etcd'}[5m])) + 0.000001)" "" "humanizeNoSmallPrefix") }}</td>
+</tr>
+<tr>
+  <td>Raft Fail Ratio</td>
+  <td>{{ template "prom_query_drilldown" (args "avg(sum by (job, follower_id)(rate(etcd_leader_follower_fail_total{job='etcd'}[5m])) / (sum by (job, follower_id)(rate(etcd_leader_follower_success_total{job='etcd'}[5m])) + 0.000001))" "" "humanizeNoSmallPrefix") }}</td>
+</tr>
+
+{{ template "prom_right_table_tail" }}
+
+{{ template "prom_content_head" .}}
+<h1>Etcd</h1>
+
+<h3>Get Queries</h3>
+<div id="getQueryGraph"></div>
+<script>
+new PromConsole.Graph({
+  node: document.querySelector("#getQueryGraph"),
+  expr: "sum by (job, host)(rate(etcd_store_success_total{job='etcd',operation='get'}[5m]) + rate(etcd_store_fail_total{job='etcd',operation='get'}[5m]))",
+  name: "[[host]]",
+  yAxisFormatter: PromConsole.NumberFormatter.humanizeNoSmallPrefix,
+  yHoverFormatter: PromConsole.NumberFormatter.humanizeNoSmallPrefix,
+  yUnits: "/s",
+  yTitle: "Get Queries"
+})
+</script>
+
+<h3>Modifying Queries</h3>
+<div id="modQueryGraph"></div>
+<script>
+new PromConsole.Graph({
+  node: document.querySelector("#modQueryGraph"),
+  expr: "sum by (job, operation)(rate(etcd_store_success_total{job='etcd',operation!='get'}[5m]) + rate(etcd_store_fail_total{job='etcd',operation!='get'}[5m]))",
+  name: "[[operation]]",
+  yAxisFormatter: PromConsole.NumberFormatter.humanizeNoSmallPrefix,
+  yHoverFormatter: PromConsole.NumberFormatter.humanizeNoSmallPrefix,
+  yUnits: "/s",
+  yTitle: "Modifying Queries"
+})
+</script>
+
+<h3>Follower Latency</h3>
+<div id="latencyGraph"></div>
+<script>
+new PromConsole.Graph({
+  node: document.querySelector("#latencyGraph"),
+  expr: "sum by (job, follower_id)(etcd_leader_follower_latency_last_milliseconds) / 1000",
+  name: "[[follower_id]]",
+  yAxisFormatter: PromConsole.NumberFormatter.humanize,
+  yHoverFormatter: PromConsole.NumberFormatter.humanize,
+  yUnits: "s",
+  yTitle: "Latency"
+})
+</script>
+{{ template "prom_content_tail" . }}
+
+{{ template "tail" }}
