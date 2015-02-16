@@ -49,18 +49,19 @@ func TestExporterFastCollect(t *testing.T) {
 	defer ts.Close()
 
 	// check if calling collect multiple before a scrape can finish accumulates scrapes
-	e := NewExporter(ts.URL, 0)
+	e := NewExporter(ts.URL, 50*time.Millisecond)
 	cch := make(chan prometheus.Metric, 100)
 
 	e.Collect(cch)
 	e.Collect(cch)
-	e.Collect(cch)
 	<-reqs
-	close(block)
 
-	if len(reqs) != 0 {
-		t.Fatalf("expected %d executed scrape(s), got %d", 1, len(reqs)+1)
+	select {
+	case <-reqs:
+		t.Fatalf("unexpected scrape request came through")
+	case <-time.After(100 * time.Millisecond):
 	}
+	close(block)
 }
 
 func TestCollector(t *testing.T) {
