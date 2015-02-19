@@ -1,7 +1,6 @@
 # etcd_exporter
 
-This is a simple server that frequently scrapes statistics from all members of an etcd cluster
-and exposes them for to be scraped by Prometheus.
+This is a simple server that frequently scrapes statistics from etcd and exposes them to be scraped by Prometheus. The etcd exporter can be run in single-mode in which it exports all running etcd nodes through one exporter instance. The default, however, monitors a single instance which allows to also export process information.
 
 [![Build Status](https://travis-ci.org/fabxc/etcd_exporter.png?branch=master)](https://travis-ci.org/fabxc/etcd_exporter) etcd 2.0.x
 
