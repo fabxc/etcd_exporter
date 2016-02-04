@@ -1,5 +1,7 @@
 # etcd_exporter
 
+**Deprecated**: etcd is now natively instrumented with Prometheus and thus an exporter is no longer needed.
+
 This is a simple server that frequently scrapes statistics from etcd and exposes them to be scraped by Prometheus. The etcd exporter can be run in single-mode in which it exports all running etcd nodes through one exporter instance. The default, however, monitors a single instance which allows to also export process information.
 
 [![Build Status](https://travis-ci.org/fabxc/etcd_exporter.png?branch=master)](https://travis-ci.org/fabxc/etcd_exporter) etcd 2.0.x
